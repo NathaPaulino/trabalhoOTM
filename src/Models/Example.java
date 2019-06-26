@@ -1,7 +1,6 @@
 package Models;
 
 import java.util.*;
-import java.util.*;
 import ilog.cplex.*;
 import ilog.concert.*;
 
@@ -9,7 +8,6 @@ public class Example {
 	public static void model() {
 		try {
 			IloCplex cplex = new IloCplex();
-			
 			/*
 			 *  Criação das variáveis de decisão
 			 */
@@ -19,15 +17,17 @@ public class Example {
 			/*
 			 *  Função objetivo
 			 */
+			 	
 			IloLinearNumExpr objetivo = cplex.linearNumExpr();
 			objetivo.addTerm(0.12,x);
 			objetivo.addTerm(0.15,y);
-			
+			//0,12x + 0,15y
 			cplex.addMinimize(objetivo);
 			
 			/*
 			 *  Constraints
 			 */
+			
 			List<IloRange> constraints = new ArrayList<IloRange>();
 			constraints.add(cplex.addGe(cplex.sum(cplex.prod(60, x),cplex.prod(60, y)),300));
 			constraints.add(cplex.addGe(cplex.sum(cplex.prod(12, x),cplex.prod(6, y)),36));

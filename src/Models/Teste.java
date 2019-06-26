@@ -1,14 +1,13 @@
 package Models;
+
 import java.io.*;
 import java.util.*;
-
 import ilog.cplex.*;
 import ilog.concert.*;
 
-
-public class UnderbalanceModel {
-	public static void model(int n,int pcr,double[][] x,int rd,double[][]y,double []L,double K) {
-		try{
+public class Teste {
+	public static void unbalancedData(int n,int pcr,double[][] x,int rd,double[][]y,double []L,double K) {
+		try {
 			int i,j,a;
 			/*
 			 *  Instância menor do problema
@@ -60,41 +59,30 @@ public class UnderbalanceModel {
 				constraints.add((IloRange) cplex.addEq(difPj, sumPj));
 			}
 			if(cplex.solve()) {
-				System.out.println("Solução Encontrada! - Amostra Underbalanced");
+				System.out.println("Solução Encontrada!");
 				System.out.println("Objetivo = "+ cplex.getObjValue());
 				for(a=0;a<n;a++) {
 					System.out.println("G["+(a+1)+"]: "+cplex.getValue(g[a]));
-				}
-				for(a=0;a<constraints.size();a++) {
-					System.out.println("Slack constraints: "+cplex.getSlack(constraints.get(a)));
 				}
 			} else {
 				System.out.println("Modelo não resolvido");
 			}
 			cplex.end();
-		} catch (IloException exec) {
+		} catch (IloException exec){
 			exec.printStackTrace();
 		}
 	}
-	
-	public static void parseCSV() {
-	    /*
-	     * "/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceCoeff.csv" --> L
-	     * "/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceCoeffK.csv" --> K
-	     * "/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceTestPCR.csv" --> TestPCR
-	     * "/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceTestRD.csv" --> TestRD
-	     */ 
-		File csvFile  = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceCoeff.csv");
-		File csvFile2 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceCoeffK.csv");
-		File csvFile3 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceTestPCR.csv");
-		File csvFile4 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnderbalancedData/UnderbalanceTestRD.csv");
+	public static void unbalancedParse() {
+		File csvFile  = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceCoeff.csv");
+		File csvFile2 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceCoeffK.csv");
+		File csvFile3 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceTestPCR.csv");
+		File csvFile4 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceTestRD.csv");
 	    String line = "";
 	    
 	    int n = 81;
 	    int pcr = 13;
-	    int rd = 13;
+	    int rd = 38;
 	    double k=3;
-	    
 	    double[][] x = new double[pcr][n];
 	    double[][] y = new double[rd][n];
 	    double [] l = new double [n];
@@ -137,9 +125,21 @@ public class UnderbalanceModel {
 			}catch (IOException exec) {
 				exec.printStackTrace();
 			}
-			System.out.println("Valor de k: "+k);
-			//Função model(geneNumber,pcr,vectorpcr,rd,vectorRD,paramL,paramK)
-			UnderbalanceModel.model(n,pcr,x,rd,y,l,k);
+			try(BufferedReader csvReader4 = new BufferedReader(new FileReader(csvFile4))){
+			   // Parse da matriz de coeficientes relativo aos pacientes RD
+			   int i = 0;
+			   int j = 0;
+			   while ((line = csvReader4.readLine()) != null) {
+					String[] values = line.split(",");
+					for(j=0;j< values.length;j++) {
+						y[i][j] = new Double(values[j]);
+					}
+					i++;
+				}
+			}catch (IOException exec) {
+				exec.printStackTrace();
+			}
+			UnbalanceModel.model(n, pcr, x, rd, y, l, k);
 		}		
-	}
+	}	
 }

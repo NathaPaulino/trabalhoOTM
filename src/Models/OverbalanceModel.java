@@ -8,100 +8,70 @@ import ilog.concert.*;
 public class OverbalanceModel {
 	public static void model(int n,int pcr,double[][] x,int rd,double[][]y,double []L,double K) {
 		try{
-			
-			//Declaração de variáveis,expressões e companhia
-			int a,i,j;
-
+			int i,j,a;
+			/*
+			 *  Instância menor do problema
+			 */
 			IloCplex cplex = new IloCplex();
+			// Variáveis
+			IloNumVar []g   = cplex.boolVarArray(n);
+			IloNumVar []Pip = cplex.numVarArray(pcr, 0, Double.MAX_VALUE);
+			IloNumVar []Pin = cplex.numVarArray(pcr, 0, Double.MAX_VALUE);
+			IloNumVar []Pjp = cplex.numVarArray(rd , 0, Double.MAX_VALUE);
+			IloNumVar []Pjn = cplex.numVarArray(rd , 0, Double.MAX_VALUE);
 			
-			IloNumVar []g = new IloNumVar[n];
-			IloNumVar []X = new IloNumVar[pcr];
-			IloNumVar []Y = new IloNumVar[rd];
-			
-			IloLinearNumExpr genes		 	 = cplex.linearNumExpr();
-			IloLinearNumExpr pcrPacients 	 = cplex.linearNumExpr();
-			IloLinearNumExpr rdPacients  	 = cplex.linearNumExpr();
-			IloLinearNumExpr pcrEvaluation   = cplex.linearNumExpr();
-			IloLinearNumExpr rdEvaluation	 = cplex.linearNumExpr();
-			
-			for(a=1;a<=n;a++) {
-				g[a] = cplex.boolVar();
-				genes.addTerm(1.0,g[a]);
+			// Objetivo
+			IloLinearNumExpr objetivo = cplex.linearNumExpr();
+			for(i=0;i<pcr;i++) {
+				objetivo.addTerm(-1.0, Pip[i]);
+				objetivo.addTerm( 1.0, Pin[i]);
 			}
-			for(i=1;i<=pcr;i++) {
-				X[i] = cplex.boolVar();
-				pcrPacients.addTerm(1.0, X[i]);
+			for(j=0;j<rd;j++) {
+				objetivo.addTerm( 1.0, Pjp[j]);
+				objetivo.addTerm(-1.0, Pjn[j]);
 			}
-			for(j=1;j<=rd;j++) {
-				Y[i] = cplex.boolVar();
-				rdPacients.addTerm(1.0, Y[i]);
-			} 
+			cplex.addMaximize(objetivo);
 			
-			for(i=1;i<=pcr;i++) {
-				for(a=1;a<=n;a++) {
-					pcrEvaluation.addTerm(g[a],L[a]*x[i][a]);	
+			// Constraints
+			List<IloRange> constraints = new ArrayList<IloRange>();
+			
+			for(i=0;i<pcr;i++) {
+				IloLinearNumExpr difPi = cplex.linearNumExpr();
+				difPi.addTerm( 1.0, Pip[i]);
+				difPi.addTerm(-1.0, Pin[i]);
+				IloLinearNumExpr sumPi = cplex.linearNumExpr();
+				for(a=0;a<n;a++) {
+					sumPi.addTerm(L[a]*x[i][a], g[a]);
 				}
-				pcrEvaluation.addTerm(K,null);
-				//
-				/*if(pcrEvaluation. 0) {
-					X[i]
-				}*/
+				sumPi.setConstant(K);
+				constraints.add((IloRange) cplex.addEq(difPi,sumPi));
 			}
 			
-			for(j=1;j<=rd;j++) {
-				for(a=1;a<=n;a++) {
-				   rdEvaluation.addTerm(g[a],L[a]*y[i][a]);
+			for(j=0;j<rd;j++) {
+				IloLinearNumExpr difPj = cplex.linearNumExpr();
+				difPj.addTerm( 1.0, Pjp[j]);
+				difPj.addTerm(-1.0, Pjn[j]);
+				IloLinearNumExpr sumPj = cplex.linearNumExpr();
+				for(a=0;a<n;a++) {
+					sumPj.addTerm(L[a]*y[j][a], g[a]);
 				}
-				rdEvaluation.addTerm(K, null);
-				/*if(rdEvaluation > 0) {
-					Y[i] = 0;
-				}*/
+				sumPj.setConstant(K);
+				constraints.add((IloRange) cplex.addEq(difPj, sumPj));
 			}
-			
-			//Função Objetivo
-			
-			IloLinearNumExpr Z = cplex.linearNumExpr();
-			
-			for(i=1;i<=pcr;i++) {
-				Z.addTerm(1.0,X[i]);
-			}
-			Z.addTerm(rd, null);
-			for(j=1;j<=rd;j++) {
-				Z.addTerm(-1.0, Y[i]);
-			}
-			
-			//Definindo o tipo da função
-			cplex.addMaximize(Z);
-			
-			// Definindo constraints 
-			
-			List<IloRange> constraints   = new ArrayList<IloRange>();
-			
-			constraints.add(cplex.addLe(genes, 81 ));
-			constraints.add(cplex.addLe(pcrPacients, pcr));
-			constraints.add(cplex.addLe(rdPacients, rd ));
-						
-			//Se possível resolver o sistema
 			if(cplex.solve()) {
+				System.out.println("Solução Encontrada! - Amostra Overbalanced");
 				System.out.println("Objetivo = "+ cplex.getObjValue());
-				System.out.println("Verificando contas: ");
-				for (i=1;i<=pcr;i++) {
-					System.out.println("X["+i+"] = "+ cplex.getValue(X[i]));
+				for(a=0;a<n;a++) {
+					System.out.println("G["+(a+1)+"]: "+cplex.getValue(g[a]));
 				}
-				for (j=1;j<=rd;j++) {
-					System.out.println("Y["+j+"] = "+ cplex.getValue(Y[j]));
-				}
-				for (a=1;a<=n;a++) {
-					System.out.println("g["+a+"] = "+ cplex.getValue(g[a]));
-				}
-				for (int k=0;k<constraints.size();k++) {
-					System.out.println("Dual  constraint: "+(k+1)+" = "+cplex.getDual(constraints.get(i)));
-					System.out.println("Slack constraint: "+(k+1)+" = "+cplex.getSlack(constraints.get(i)));
+				for (a=0;a<constraints.size();a++) {
+				//	System.out.println("Dual  constraint: "+(c+1)+" = "+cplex.getDual(constraints.get(c)));
+					System.out.println("Slack constraint: "+cplex.getSlack(constraints.get(a)));
 				}
 			} else {
 				System.out.println("Modelo não resolvido");
 			}
-			
+			cplex.end();		
 		} catch (IloException exec) {
 			exec.printStackTrace();
 		}
@@ -116,10 +86,10 @@ public class OverbalanceModel {
 	     * "/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/OverbalancedData/OverbalanceTestPCR.csv" --> TestPCR
 	     * "/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/OverbalancedData/OverbalanceTestRD.csv" --> TestRD
 	     */ 
-		File csvFile  = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceCoeff.csv");
-		File csvFile2 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceCoeffK.csv");
-		File csvFile3 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceTestPCR.csv");
-		File csvFile4 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/UnbalancedData/UnbalanceTestRD.csv");
+		File csvFile  = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/OverbalancedData/OverbalanceCoeff.csv");
+		File csvFile2 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/OverbalancedData/OverbalanceCoeffK.csv");
+		File csvFile3 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/OverbalancedData/OverbalanceTestPCR.csv");
+		File csvFile4 = new File("/home/np/eclipse-workspace/TrabalhoOTM/csvFiles/OverbalancedData/OverbalanceTestRD.csv");
 	    String line = "";
 	    
 	    int n = 81;
@@ -133,13 +103,14 @@ public class OverbalanceModel {
 		if(csvFile.isFile() && csvFile2.isFile() && csvFile3.isFile() && csvFile4.isFile()) {
 			try(BufferedReader csvReader  = new BufferedReader(new FileReader(csvFile))){ 
 				// Parse do coeficiente L do DLDA
+				int a=0;
 				while((line = csvReader.readLine()) != null) {
 					String[] values = line.split(",");
 					for(int i=0;i <values.length;i++) {
-						l[i] = new Double(values[i]);
+						l[a] = new Double(values[i]);
+						a++;
 					}
 				}
-				System.out.println("Coeficiente L pronto");
 			}catch (IOException exec) {
 				exec.printStackTrace();
 			}
@@ -151,7 +122,6 @@ public class OverbalanceModel {
 						k = new Double(values[i]);
 					}
 				}
-				System.out.println("Coeficiente K pronto");
 			}catch (IOException exec) {
 				exec.printStackTrace();
 			}
@@ -161,31 +131,11 @@ public class OverbalanceModel {
 				int j = 0;
 				while ((line = csvReader3.readLine()) != null) {
 					String[] values = line.split(",");
-					System.out.println("Linha: " + i);
-					System.out.println("Values length: " + values.length);
 					for(j=0;j< values.length;j++) {
 						x[i][j] = new Double(values[j]);
 					}
 					i++;
 				}
-				System.out.println("Matriz pacientes PCR pronta");
-			}catch (IOException exec) {
-				exec.printStackTrace();
-			}
-			try(BufferedReader csvReader4 = new BufferedReader(new FileReader(csvFile4))){
-			   // Parse da matriz de coeficientes relativo aos pacientes RD
-			   int i = 0;
-			   int j = 0;
-			   while ((line = csvReader4.readLine()) != null) {
-					String[] values = line.split(",");
-					System.out.println("Linha: " + i);
-					System.out.println("Values length: " + values.length);
-					for(j=0;j< values.length;j++) {
-						y[i][j] = new Double(values[j]);
-					}
-					i++;
-				}
-				System.out.println("Matriz pacientes RD pronta");
 			}catch (IOException exec) {
 				exec.printStackTrace();
 			}
